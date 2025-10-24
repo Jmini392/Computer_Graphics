@@ -33,10 +33,10 @@ glm::vec3 Axis(0.0f); glm::vec3 r_axis(0.0f); glm::vec3 l_axis(0.0f);
 glm::vec3 translate(0.0f);
 float angle = 0.0f, self_angle = 0.0f;
 float rscale = 1.0f, lscale = 1.0f;
-bool change = false; bool swap = false;
+bool change = false; bool swap = false, updown = false;
 bool rstate[4] = { false, false, false, false };
 bool lstate[4] = { false, false, false, false };
-int sel = -1; int rmaxscale = 0, lmaxscale = 0;
+int sel = -1; int rmaxscale = 0, lmaxscale = 0, a = 0;
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -424,8 +424,9 @@ void SwapPosition() {
 
 // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션
 void UpDownSwap() {
-	
-
+    glm::mat4 rotMat = glm::rotate(glm::mat4(1.0f), glm::radians(2.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    rMatrix = rotMat * rMatrix;
+    lMatrix = rotMat * lMatrix;
 }
 
 // 두 도형이 확대 축소하면서 공전/자전 애니메이션
@@ -593,7 +594,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 		break;
     case 'u': // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션 
 		Reset();
-		UpDownSwap();
+		updown = true;
         break;
 	case 'v': // 두 도형이 확대 축소하면서 공전/자전 애니메이션
         rstate[0] = false; rstate[1] = false; rstate[2] = false; rstate[3] = false;
@@ -763,6 +764,14 @@ void TimerFunction(int value) {
     if (swap) {
         SwapPosition();
     }
+    if (updown) {
+        UpDownSwap();
+		a += 2;
+        if (a > 180) {
+            a = 0;
+            updown = false;
+		}
+	}
 	glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }
