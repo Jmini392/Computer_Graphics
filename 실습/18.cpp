@@ -33,7 +33,7 @@ glm::vec3 Axis(0.0f); glm::vec3 r_axis(0.0f); glm::vec3 l_axis(0.0f);
 glm::vec3 translate(0.0f);
 float angle = 0.0f, self_angle = 0.0f;
 float rscale = 1.0f, lscale = 1.0f;
-bool change = false;
+bool change = false; bool swap = false;
 bool rstate[4] = { false, false, false, false };
 bool lstate[4] = { false, false, false, false };
 int sel = -1; int rmaxscale = 0, lmaxscale = 0;
@@ -68,7 +68,7 @@ void CreateCorrdinate(Shape &line);
 void CreateCube(Shape& cube);
 void CreateCorn(Shape& corn);
 void CreateMatrix();
-void Reset();
+void menu();
 
 //--- 필요한 변수 선언
 GLint width, height;
@@ -98,11 +98,31 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     CreateCube(cube);
     CreateCorn(corn);
     CreateMatrix();
+    menu();
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
     glutKeyboardFunc(Keyboard); // 키보드 입력
     glutMainLoop();
+}
+// 메뉴
+void menu() {
+	std::cout << "x: X축 자전" << std::endl;
+	std::cout << "y: Y축 자전" << std::endl;
+	std::cout << "r: y축 공전" << std::endl;
+	std::cout << "a: 자체 확대" << std::endl;
+	std::cout << "b: 원점 기준 확대" << std::endl;
+	std::cout << "d: x축 이동" << std::endl;
+	std::cout << "e: y축 이동" << std::endl;
+	std::cout << "t: 원점 통과 위치 교환 애니메이션" << std::endl;
+	std::cout << "u: 위아래 이동 위치 교환 애니메이션" << std::endl;
+	std::cout << "v: 확대 축소 공전/자전 애니메이션" << std::endl;
+	std::cout << "1: 오른쪽 도형 선택" << std::endl;
+	std::cout << "2: 왼쪽 도형 선택" << std::endl;
+	std::cout << "3: 모든 도형 선택" << std::endl;
+	std::cout << "c: 도형 변경" << std::endl;
+	std::cout << "s: 리셋" << std::endl;
+	std::cout << "q: 종료" << std::endl;
 }
 
 // 좌표축 생성 함수
@@ -380,13 +400,32 @@ void TranslateMatrix(glm::vec3 &trans, glm::mat4 &matrix) {
 }
 
 // 두 도형이 원점을 통과하면 서로 위치 바꾸는 애니메이션
+glm::vec3 rvec; glm::vec3 lvec;
+glm::vec3 rvec0; glm::vec3 lvec0;
+float tic = 0.0f;
 void SwapPosition() {
+    rvec0 = (1.0f - tic) * rvec + tic * lvec;
+	lvec0 = (1.0f - tic) * lvec + tic * rvec;
+    rMatrix[3][0] = rvec0.x;
+    rMatrix[3][1] = rvec0.y;
+    rMatrix[3][2] = rvec0.z;
 
+    lMatrix[3][0] = lvec0.x;
+    lMatrix[3][1] = lvec0.y;
+    lMatrix[3][2] = lvec0.z;
+    
+    tic += 0.02f;
+
+    if (tic > 1.0f) {
+        tic = 0.0f;
+        swap = false;
+	}
 }
 
 // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션
 void UpDownSwap() {
-    
+	
+
 }
 
 // 두 도형이 확대 축소하면서 공전/자전 애니메이션
@@ -545,15 +584,20 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         sel = 3;
         break;
     case 't': // 두 도형이 원점을 통과하면 서로 위치 바꾸는 애니메이션
-		Reset();
-		SwapPosition();
-        break;
+        rstate[0] = false; rstate[1] = false; rstate[2] = false; rstate[3] = false;
+        lstate[0] = false; lstate[1] = false; lstate[2] = false; lstate[3] = false;
+        rvec = glm::vec3(rMatrix[3][0], rMatrix[3][1], rMatrix[3][2]);
+        lvec = glm::vec3(lMatrix[3][0], lMatrix[3][1], lMatrix[3][2]);
+        tic = 0.0f;
+        swap = true;
+		break;
     case 'u': // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션 
 		Reset();
 		UpDownSwap();
         break;
 	case 'v': // 두 도형이 확대 축소하면서 공전/자전 애니메이션
-        Reset();
+        rstate[0] = false; rstate[1] = false; rstate[2] = false; rstate[3] = false;
+        lstate[0] = false; lstate[1] = false; lstate[2] = false; lstate[3] = false;
 		ScaleRotate();
         break;
     case 'c': // 도형 변경
@@ -716,6 +760,9 @@ void TimerFunction(int value) {
         TranslateMatrix(translate, *chooseMatrix[i]);
 		if (i == chooseMatrix.size() - 1) sel = -1;
 	}
+    if (swap) {
+        SwapPosition();
+    }
 	glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }
