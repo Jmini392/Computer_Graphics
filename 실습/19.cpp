@@ -463,11 +463,13 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     unsigned int transformLocation = glGetUniformLocation(shaderProgramID, "model");
     unsigned int colorLocation = glGetUniformLocation(shaderProgramID, "objectColor");
 
+	// 투영 행렬 설정
     glm::mat4 projection = glm::mat4(1.0f);
     if (angle) projection = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, -10.0f, 10.0f);
     else projection = glm::perspective(glm::radians(90.0f), (float)width / (float)height, 0.1f, 100.0f);
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
     
+    // 뷰 행렬 설정
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::lookAt(camera.eye, camera.at, camera.up);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
