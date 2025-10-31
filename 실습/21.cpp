@@ -27,6 +27,13 @@ Shape box; Shape boxs[3];
 GLUquadric* sphere[5];
 float cube_rotate_angle;
 
+// 작은 큐브들의 위치 추적
+struct CubePosition {
+    float x, y, z;
+    float size;  // 큐브의 크기
+};
+CubePosition cubePositions[3];
+
 // 카메라
 struct Camera {
     glm::vec3 eye;
@@ -40,6 +47,9 @@ float new_eye_x; float new_eye_z;
 
 bool isclicked = false;
 
+// 벽 경계 (메인 큐브의 크기)
+const float WALL_MIN = -1.0f;
+const float WALL_MAX = 1.0f;
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -78,6 +88,7 @@ void TimerFunction(int value);
 void InitBuffers(Shape& shape);
 void CreateCube(Shape& cube, float x, float height, float y);
 void menu();
+void UpdateCubePositions();
 
 //--- 필요한 변수 선언
 GLint width = 800, height = 600;
@@ -106,6 +117,11 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 	CreateCube(box, 1.0f, 1.0f, 1.0f);
     for (int i = 0; i < 3; i++) {
         CreateCube(boxs[i], 0.1f * (i + 1), 0.1f * (i + 1), 0.1f * (i + 1));
+        // 초기 위치 설정
+        cubePositions[i].x = 0.0f;
+        cubePositions[i].y = -1.0f + (0.1f * (i + 1));
+        cubePositions[i].z = -0.1f * ((i + 1) * (i + 1) - 1) + 0.3f;
+        cubePositions[i].size = 0.1f * (i + 1);
 	}
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
@@ -121,6 +137,7 @@ void menu() {
     std::cout << "y: 카메라 y축 공전" << std::endl;
     std::cout << "b: 공추가" << std::endl;
     std::cout << "q: 종료" << std::endl;
+    std::cout << "마우스 드래그: 큐브 회전 및 작은 큐브 이동" << std::endl;
 }
 
 // 큐브 생성 함수
@@ -214,6 +231,39 @@ void CreateCube(Shape& cube, float x, float height, float y) {
 		0.5f, 0.5f, 0.5f
     };
     InitBuffers(cube);
+}
+
+// 큐브 위치 업데이트 함수
+void UpdateCubePositions() {
+    float radians = glm::radians(cube_rotate_angle);
+    float gravity_x = -sin(radians) * 0.02f;  // 중력 방향 벡터
+    float gravity_y = -cos(radians) * 0.02f;
+    
+    for (int i = 0; i < 3; i++) {
+        float half_size = cubePositions[i].size;
+        
+        // 새로운 위치 계산
+        float new_x = cubePositions[i].x + gravity_x;
+        float new_y = cubePositions[i].y + gravity_y;
+        
+        // X축 충돌 체크
+        if (new_x - half_size < WALL_MIN) {
+            new_x = WALL_MIN + half_size;
+        } else if (new_x + half_size > WALL_MAX) {
+            new_x = WALL_MAX - half_size;
+        }
+        
+        // Y축 충돌 체크
+        if (new_y - half_size < WALL_MIN) {
+            new_y = WALL_MIN + half_size;
+        } else if (new_y + half_size > WALL_MAX) {
+            new_y = WALL_MAX - half_size;
+        }
+        
+        // 위치 업데이트
+        cubePositions[i].x = new_x;
+        cubePositions[i].y = new_y;
+    }
 }
 
 // 버퍼 설정 함수
@@ -343,7 +393,7 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     for (int i = 0; i < 3; i++) {
         glm::mat4 model = glm::mat4(1.0f);
 		model = glm::rotate(model, glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::translate(model, glm::vec3(0.0f, -1.0 + (0.1f * (i + 1)), -0.1 * ((i + 1) * (i + 1) - 1) + 0.3f)); // 3, 0, -5
+        model = glm::translate(model, glm::vec3(cubePositions[i].x, cubePositions[i].y, cubePositions[i].z));
         glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
         glBindVertexArray(boxs[i].VAO);
         glDrawElements(GL_TRIANGLES, boxs[i].index.size(), GL_UNSIGNED_INT, 0);
@@ -418,16 +468,22 @@ void Mouse(int button, int state, int x, int y) {
 
 void Motion(int x, int y) {
     float mx = MouseX(x);
-    //float my = MouseY(y);
     if (isclicked) {
-        if (mx < 0.0f) cube_rotate_angle+=0.1f;// = 0.2f;
-        else cube_rotate_angle-=0.1f;// = -0.2f;
+        if (mx < 0.0f) cube_rotate_angle += 0.1f;
+        else cube_rotate_angle -= 0.1f;
+        
+        // 큐브 위치 업데이트
+        UpdateCubePositions();
     }
     glutPostRedisplay();
 }
 
 // 타이머 콜백 함수
 void TimerFunction(int value) {
+    // 지속적으로 중력 적용
+    if (isclicked) {
+        UpdateCubePositions();
+    }
     glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }
