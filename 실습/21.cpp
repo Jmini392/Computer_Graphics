@@ -15,6 +15,7 @@
 std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+std::uniform_real_distribution<float> vel_dis(-0.02f, 0.02f);
 
 // 객체 구조체
 struct Shape {
@@ -26,6 +27,15 @@ struct Shape {
 Shape box; Shape boxs[3];
 GLUquadric* sphere[5];
 float cube_rotate_angle;
+
+// 공 위치 및 속도 데이터
+struct BallData {
+    float x, y, z;
+    float vx, vy, vz;
+    bool active;
+};
+BallData ballData[5];
+int ballCount = 0;
 
 // 작은 큐브들의 위치 추적
 struct CubePosition {
@@ -50,6 +60,7 @@ bool isclicked = false;
 // 벽 경계 (메인 큐브의 크기)
 const float WALL_MIN = -1.0f;
 const float WALL_MAX = 1.0f;
+const float BALL_RADIUS = 0.1f;
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -89,6 +100,8 @@ void InitBuffers(Shape& shape);
 void CreateCube(Shape& cube, float x, float height, float y);
 void menu();
 void UpdateCubePositions();
+void CreateBall();
+void UpdateBalls();
 
 //--- 필요한 변수 선언
 GLint width = 800, height = 600;
@@ -123,6 +136,12 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
         cubePositions[i].z = -0.1f * ((i + 1) * (i + 1) - 1) + 0.3f;
         cubePositions[i].size = 0.1f * (i + 1);
 	}
+    
+    // 공 데이터 초기화
+    for (int i = 0; i < 5; i++) {
+        ballData[i].active = false;
+    }
+    
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
@@ -135,7 +154,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 void menu() {
     std::cout << "z: 카메라 z축 이동" << std::endl;
     std::cout << "y: 카메라 y축 공전" << std::endl;
-    std::cout << "b: 공추가" << std::endl;
+    std::cout << "b: 공추가 (최대 5개)" << std::endl;
     std::cout << "q: 종료" << std::endl;
     std::cout << "마우스 드래그: 큐브 회전 및 작은 큐브 이동" << std::endl;
 }
@@ -231,6 +250,72 @@ void CreateCube(Shape& cube, float x, float height, float y) {
 		0.5f, 0.5f, 0.5f
     };
     InitBuffers(cube);
+}
+
+// 공 생성 함수
+void CreateBall() {
+    if (ballCount >= 5) {
+        std::cout << "최대 5개의 공까지만 생성 가능합니다!" << std::endl;
+        return;
+    }
+    
+    // 중앙에서 시작
+    ballData[ballCount].x = 0.0f;
+    ballData[ballCount].y = 0.0f;
+    ballData[ballCount].z = 0.0f;
+    
+    // 랜덤한 방향으로 속도 설정 (0이 아닌 값으로 보장)
+    do {
+        ballData[ballCount].vx = vel_dis(gen);
+        ballData[ballCount].vy = vel_dis(gen);
+        ballData[ballCount].vz = vel_dis(gen);
+    } while (abs(ballData[ballCount].vx) < 0.005f && 
+             abs(ballData[ballCount].vy) < 0.005f && 
+             abs(ballData[ballCount].vz) < 0.005f);
+    
+    ballData[ballCount].active = true;
+    ballCount++;
+    
+    std::cout << "공 생성됨! 현재 공 개수: " << ballCount << std::endl;
+}
+
+// 공 업데이트 함수
+void UpdateBalls() {
+    for (int i = 0; i < ballCount; i++) {
+        if (!ballData[i].active) continue;
+        
+        // 위치 업데이트
+        ballData[i].x += ballData[i].vx;
+        ballData[i].y += ballData[i].vy;
+        ballData[i].z += ballData[i].vz;
+        
+        // X축 충돌 체크 및 튕김
+        if (ballData[i].x - BALL_RADIUS < WALL_MIN) {
+            ballData[i].x = WALL_MIN + BALL_RADIUS;
+            ballData[i].vx = -ballData[i].vx;
+        } else if (ballData[i].x + BALL_RADIUS > WALL_MAX) {
+            ballData[i].x = WALL_MAX - BALL_RADIUS;
+            ballData[i].vx = -ballData[i].vx;
+        }
+        
+        // Y축 충돌 체크 및 튕김
+        if (ballData[i].y - BALL_RADIUS < WALL_MIN) {
+            ballData[i].y = WALL_MIN + BALL_RADIUS;
+            ballData[i].vy = -ballData[i].vy;
+        } else if (ballData[i].y + BALL_RADIUS > WALL_MAX) {
+            ballData[i].y = WALL_MAX - BALL_RADIUS;
+            ballData[i].vy = -ballData[i].vy;
+        }
+        
+        // Z축 충돌 체크 및 튕김
+        if (ballData[i].z - BALL_RADIUS < WALL_MIN) {
+            ballData[i].z = WALL_MIN + BALL_RADIUS;
+            ballData[i].vz = -ballData[i].vz;
+        } else if (ballData[i].z + BALL_RADIUS > WALL_MAX) {
+            ballData[i].z = WALL_MAX - BALL_RADIUS;
+            ballData[i].vz = -ballData[i].vz;
+        }
+    }
 }
 
 // 큐브 위치 업데이트 함수
@@ -398,13 +483,18 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
         glBindVertexArray(boxs[i].VAO);
         glDrawElements(GL_TRIANGLES, boxs[i].index.size(), GL_UNSIGNED_INT, 0);
 	}
-    // 공
-    for (int i = 0; i < 5; i++) {
+    
+    // 공 - 활성화된 공만 렌더링
+    for (int i = 0; i < ballCount; i++) {
+        if (!ballData[i].active) continue;
+        
         sphere[i] = gluNewQuadric();
         gluQuadricDrawStyle(sphere[i], GLU_FILL);
+        
         glm::mat4 model = glm::mat4(1.0f);
-		glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        gluSphere(sphere[i], 0.1, 20, 20);
+        model = glm::translate(model, glm::vec3(ballData[i].x, ballData[i].y, ballData[i].z));
+        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
+        gluSphere(sphere[i], BALL_RADIUS, 20, 20);
         gluDeleteQuadric(sphere[i]);
     }
 
@@ -448,6 +538,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         camera.eye.z = new_eye_z;
         break;
     case 'b': // 공 하나씩 생성
+        CreateBall();
         break;
     case 'q':
         exit(0);
@@ -484,6 +575,10 @@ void TimerFunction(int value) {
     if (isclicked) {
         UpdateCubePositions();
     }
+    
+    // 공 업데이트 (항상 실행)
+    UpdateBalls();
+    
     glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }
