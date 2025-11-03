@@ -23,24 +23,13 @@ struct Shape {
     std::vector<float> colors;
     GLuint VAO, VBO[2], EBO;
 };
-Shape sub_body; Shape mid_body;
-Shape top_body[2]; Shape cannon[2]; Shape flagpole[2];
-glm::vec3 tankPosition = glm::vec3(0.0f);
-glm::mat4 middle_rotation_matrix = glm::mat4(1.0f);
-glm::mat4 cannon_rotation_matrix = glm::mat4(1.0f);
-glm::mat4 flagpole_rotation_matrix = glm::mat4(1.0f);
-bool middle_rotate = false, top_translate = false;
-bool cannon_rotate = false, flagpole_rotate = false;
-float trans = 0.0f; int trans_cnt = 0; int cnt = 0; int flag = 1;
-int flagcnt = 0;
-
 
 // 카메라
 struct Camera {
     glm::vec3 eye;
     glm::vec3 at;
     glm::vec3 up;
-} camera = { glm::vec3(0.0f, 0.5f, 3.0f),
+} camera = { glm::vec3(0.0f, 0.0f, 3.0f),
              glm::vec3(0.0f, 0.0f, 0.0f),
              glm::vec3(0.0f, 1.0f, 0.0f) };
 float angle; float cos_angle; float sin_angle;
@@ -102,13 +91,6 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     shaderProgramID = make_shaderProgram();
     //--- 콜백 함수 등록
     menu();
-    CreateCube(sub_body, 1.0f, 0.4f, 0.3f);
-    CreateCube(mid_body, 0.5f, 0.3f, 0.15f);
-    for (int i = 0; i < 2; i++) {
-        CreateCube(top_body[i], 0.3f, 0.4f, 0.2f);
-        CreateCube(cannon[i], 0.05f, 0.4f, 0.05f);
-        CreateCube(flagpole[i], 0.05f, 0.05f, 0.4f);
-    }
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
@@ -118,18 +100,14 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 }
 // 메뉴
 void menu() {
-    std::cout << "방향키: 물체 이동" << std::endl;
-    std::cout << "t: 중앙몸체 y축 회전" << std::endl;
-    std::cout << "l: 상부 몸체 서로 위치 이동" << std::endl;
-    std::cout << "g: 상부 포신 y축 회전 서로 반대방향" << std::endl;
-    std::cout << "p: 상부 깃대 x축 회전 서로 반대방향" << std::endl;
+    std::cout << "o: 앞면이 열렸다 닫혔다" << std::endl;
+    std::cout << "w/a/s/d: 로봇 이동" << std::endl;
+    std::cout << "+/-: 로봇 속도 조절" << std::endl;
+    std::cout << "j: 로봇 점프" << std::endl;
+    std::cout << "i: 초기화" << std::endl;
     std::cout << "z: 카메라 z축 이동" << std::endl;
     std::cout << "x: 카메라 x축 이동" << std::endl;
-    std::cout << "y: 카메라 y축 자전" << std::endl;
-    std::cout << "r: 카메라 y축 공전" << std::endl;
-    std::cout << "a: 카메라 공전 애니메이션" << std::endl;
-    std::cout << "o: 움직임 멈추기" << std::endl;
-    std::cout << "c: 리셋" << std::endl;
+    std::cout << "y: 카메라 y축 공전" << std::endl;
     std::cout << "q: 종료" << std::endl;
 }
 
@@ -303,94 +281,17 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     unsigned int transformLocation = glGetUniformLocation(shaderProgramID, "model");
     unsigned int colorLocation = glGetUniformLocation(shaderProgramID, "objectColor");
 
-	// 투영 행렬 설정
+    // 투영 행렬 설정
     glm::mat4 projection = glm::mat4(1.0f);
     projection = glm::perspective(glm::radians(90.0f), (float)width / (float)height, 0.1f, 100.0f);
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
 
-	// 뷰 행렬 설정
+    // 뷰 행렬 설정
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::lookAt(camera.eye, camera.at, camera.up);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-    // 탱크 그리기
-	// 아래 몸체
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, tankPosition);
-	model = glm::translate(model, glm::vec3(0.0f, -0.45f, 0.0f));
-    glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-    glBindVertexArray(sub_body.VAO);
-    glUniform3f(colorLocation, 0.5f, 0.5f, 0.5f);
-    glDrawElements(GL_TRIANGLES, sub_body.index.size(), GL_UNSIGNED_INT, 0);
-
-	// 중간 몸체
-    model = glm::mat4(1.0f);
-    model = glm::translate(model, tankPosition);
-	model = middle_rotation_matrix * model;
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-    glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-    glBindVertexArray(mid_body.VAO);
-    glUniform3f(colorLocation, 0.8f, 0.8f, 0.8f);
-    glDrawElements(GL_TRIANGLES, mid_body.index.size(), GL_UNSIGNED_INT, 0);
-
-
-    for (int i = 0; i < 2; i++) {
-        // 왼쪽, 오른쪽 배치
-        float x;
-        if (i == 0) {
-            if (flag == 1) x = -0.5f + trans;
-			else x = 0.5f - trans;
-        }
-        else {
-            if (flag == 1) x = 0.5f - trans;
-            else x = -0.5f + trans;
-        }
-
-		// 상부 몸체
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, tankPosition);
-		model = middle_rotation_matrix * model;
-        model = glm::translate(model, glm::vec3(x, 0.35f, 0.0f));
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(top_body[i].VAO);
-        glUniform3f(colorLocation, 0.0f, 0.8f, 0.0f);
-        glDrawElements(GL_TRIANGLES, top_body[i].index.size(), GL_UNSIGNED_INT, 0);
-
-		// 포신
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, tankPosition);
-        model = glm::translate(model, glm::vec3(x, 0.35f, 0.0f));
-        model = middle_rotation_matrix * model;
-		
-        glm::mat4 individual_cannon_rotation = glm::mat4(1.0f);
-        if (x < 0) individual_cannon_rotation = cannon_rotation_matrix;
-		else individual_cannon_rotation = glm::inverse(cannon_rotation_matrix);
-		model = model * individual_cannon_rotation;
-
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.4f));
-                
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(cannon[i].VAO);
-        glUniform3f(colorLocation, 1.0f, 1.0f, 0.0f);
-        glDrawElements(GL_TRIANGLES, cannon[i].index.size(), GL_UNSIGNED_INT, 0);
-
-		// 깃대
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, tankPosition);
-        model = glm::translate(model, glm::vec3(x, 0.65f, 0.0f));
-        model = middle_rotation_matrix * model;
-
-		glm::mat4 individual_flagpole_rotation = glm::mat4(1.0f);
-		if (i == 0) individual_flagpole_rotation = flagpole_rotation_matrix;
-		else individual_flagpole_rotation = glm::inverse(flagpole_rotation_matrix);
-		glm::mat4 translate_down = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.2f, 0.0f));
-        model = inverse(translate_down) * model * individual_flagpole_rotation * translate_down;
-        
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(flagpole[i].VAO);
-        glUniform3f(colorLocation, 1.0f, 0.7f, 0.0f);
-        glDrawElements(GL_TRIANGLES, flagpole[i].index.size(), GL_UNSIGNED_INT, 0);
-    }
+    // 그리기
 
     glutSwapBuffers();
 }
@@ -403,112 +304,6 @@ GLvoid Reshape(int w, int h) {
 // 키보드 콜백 함수
 GLvoid Keyboard(unsigned char key, int x, int y) {
     switch (key) {
-    case 't':
-        middle_rotate = true;
-        break;
-    case 'l':
-		top_translate = true;
-        break;
-    case 'g':
-		cannon_rotate = true;
-        break;
-    case 'p':
-		flagpole_rotate = true;
-        break;
-    case 'z':
-		camera.eye.z += 0.1f;
-        break;
-    case 'Z':
-		camera.eye.z -= 0.1f;
-        break;
-    case 'x':
-		camera.eye.x += 0.1f;
-		camera.at.x += 0.1f;
-        break;
-    case 'X':
-		camera.eye.x -= 0.1f;
-		camera.at.x -= 0.1f;
-        break;
-    case 'y':
-        angle = glm::radians(5.0f);
-        cos_angle = cos(angle);
-        sin_angle = sin(angle);
-
-        direction = camera.at - camera.eye;
-        new_eye_x = direction.x * cos_angle - direction.z * sin_angle;
-        new_eye_z = direction.x * sin_angle + direction.z * cos_angle;
-
-        camera.at.x = camera.eye.x + new_eye_x;
-        camera.at.z = camera.eye.z + new_eye_z;
-        break;
-    case 'Y':
-        angle = glm::radians(-5.0f);
-        cos_angle = cos(angle);
-        sin_angle = sin(angle);
-
-        direction = camera.at - camera.eye;
-        new_eye_x = direction.x * cos_angle - direction.z * sin_angle;
-        new_eye_z = direction.x * sin_angle + direction.z * cos_angle;
-
-        camera.at.x = camera.eye.x + new_eye_x;
-        camera.at.z = camera.eye.z + new_eye_z;
-        break;
-    case 'r':
-        angle = glm::radians(5.0f);
-        cos_angle = cos(angle);
-        sin_angle = sin(angle);
-
-        new_eye_x = camera.eye.x * cos_angle - camera.eye.z * sin_angle;
-        new_eye_z = camera.eye.x * sin_angle + camera.eye.z * cos_angle;
-
-        camera.eye.x = new_eye_x;
-        camera.eye.z = new_eye_z;
-        break;
-    case 'R':
-        angle = glm::radians(-5.0f);
-        cos_angle = cos(angle);
-        sin_angle = sin(angle);
-
-        new_eye_x = camera.eye.x * cos_angle - camera.eye.z * sin_angle;
-        new_eye_z = camera.eye.x * sin_angle + camera.eye.z * cos_angle;
-
-        camera.eye.x = new_eye_x;
-        camera.eye.z = new_eye_z;
-        break;
-    case 'a':
-        camera_rotate = true;
-        break;
-    case 'o':
-		middle_rotate = false;
-		top_translate = false;
-		cannon_rotate = false;
-		flagpole_rotate = false;
-		camera_rotate = false;
-        break;
-    case 'c':
-		camera_rotate = false;
-		middle_rotate = false;
-		top_translate = false;
-		cannon_rotate = false;
-		flagpole_rotate = false;
-        cnt = 0;
-		trans_cnt = 0;
-        trans = 0.0f;
-        camera = { glm::vec3(0.0f, 0.0f, 3.0f),
-                   glm::vec3(0.0f, 0.0f, 0.0f),
-				   glm::vec3(0.0f, 1.0f, 0.0f) };
-		CreateCube(sub_body, 1.0f, 0.4f, 0.3f);
-		CreateCube(mid_body, 0.5f, 0.3f, 0.15f);
-		for (int i = 0; i < 2; i++) {
-			CreateCube(top_body[i], 0.3f, 0.4f, 0.2f);
-			CreateCube(cannon[i], 0.05f, 0.2f, 0.05f);
-			CreateCube(flagpole[i], 0.05f, 0.05f, 0.2f);
-		}
-		tankPosition = glm::vec3(0.0f);
-		middle_rotation_matrix = glm::mat4(1.0f);
-		cannon_rotation_matrix = glm::mat4(1.0f);
-		flagpole_rotation_matrix = glm::mat4(1.0f);
-        break;
     case 'q':
         exit(0);
         break;
@@ -516,51 +311,8 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
-// 특수키 콜백 함수
-GLvoid SpecailKeyboard(int key, int x, int y) {
-    switch (key) {
-    case GLUT_KEY_UP:
-        tankPosition.z -= 0.1f;  // 앞으로 이동
-        break;
-    case GLUT_KEY_DOWN:
-        tankPosition.z += 0.1f;  // 뒤로 이동
-        break;
-    case GLUT_KEY_LEFT:
-        tankPosition.x -= 0.1f;  // 왼쪽으로 이동
-        break;
-    case GLUT_KEY_RIGHT:
-        tankPosition.x += 0.1f;  // 오른쪽으로 이동
-    }
-    glutPostRedisplay();
-}
-
 // 타이머 콜백 함수
 void TimerFunction(int value) {
-	if (middle_rotate) middle_rotation_matrix = glm::rotate(middle_rotation_matrix, glm::radians(5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    if (top_translate) {
-        trans_cnt++;
-        
-        trans += 1.0f / 30.0f;
-        if (trans_cnt >= 30) {
-			flag = -flag; // 방향 전환
-            trans = 0.0f; // 정확히 1.0f로 설정
-            top_translate = false; // 애니메이션 중지
-            trans_cnt = 0; // 카운터 초기화
-        }
-    }
-    if (cannon_rotate) {
-        cnt++;
-        if (cnt < 60) cannon_rotation_matrix = glm::rotate(cannon_rotation_matrix, glm::radians(-2.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        else if (cnt < 120) cannon_rotation_matrix = glm::rotate(cannon_rotation_matrix, glm::radians(2.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        else cnt = 0;
-    }
-    if (flagpole_rotate) {
-        flagcnt++;
-        if (flagcnt < 40)flagpole_rotation_matrix = glm::rotate(flagpole_rotation_matrix, glm::radians(-2.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        else if (flagcnt < 80)flagpole_rotation_matrix = glm::rotate(flagpole_rotation_matrix, glm::radians(2.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		else flagcnt = 0;
-    }
-	if (camera_rotate) camera_rotation_animation();
     glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }

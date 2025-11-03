@@ -14,8 +14,7 @@
 
 std::random_device rd;
 std::mt19937 gen(rd());
-std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-std::uniform_real_distribution<float> vel_dis(-0.02f, 0.02f);
+std::uniform_real_distribution<float> vel_dis(-0.05f, 0.05f);
 
 // 객체 구조체
 struct Shape {
@@ -26,41 +25,31 @@ struct Shape {
 };
 Shape box; Shape boxs[3];
 GLUquadric* sphere[5];
+glm::vec3 boxs_axis[3];
+glm::vec3 spheres_axis[5];
+glm::vec3 spheres_vaxis[5];
 float cube_rotate_angle;
-
-// 공 위치 및 속도 데이터
-struct BallData {
-    float x, y, z;
-    float vx, vy, vz;
-    bool active;
-};
-BallData ballData[5];
+float boxsize = 1.0f;
+float ballsize = 0.1f;
+float opensize = 0.0f;
 int ballCount = 0;
+int bottom_face_index = 2; // 현재 바닥면의 인덱스
 
-// 작은 큐브들의 위치 추적
-struct CubePosition {
-    float x, y, z;
-    float size;  // 큐브의 크기
-};
-CubePosition cubePositions[3];
 
 // 카메라
 struct Camera {
     glm::vec3 eye;
     glm::vec3 at;
     glm::vec3 up;
-} camera = { glm::vec3(0.0f, 0.3f, 2.0f),
+} camera = { glm::vec3(0.0f, 0.3f, 1.5f),
              glm::vec3(0.0f, 0.0f, 0.0f),
              glm::vec3(0.0f, 1.0f, 0.0f) };
 float angle; float cos_angle; float sin_angle;
 float new_eye_x; float new_eye_z;
 
 bool isclicked = false;
+bool open = false; bool show = true;
 
-// 벽 경계 (메인 큐브의 크기)
-const float WALL_MIN = -1.0f;
-const float WALL_MAX = 1.0f;
-const float BALL_RADIUS = 0.1f;
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -94,14 +83,12 @@ float MouseX(int x) {
 float MouseY(int y) {
     return 1.0f - 2.0f * y / glutGet(GLUT_WINDOW_HEIGHT);
 }
-
 void TimerFunction(int value);
 void InitBuffers(Shape& shape);
 void CreateCube(Shape& cube, float x, float height, float y);
 void menu();
 void UpdateCubePositions();
-void CreateBall();
-void UpdateBalls();
+void BallsMove();
 
 //--- 필요한 변수 선언
 GLint width = 800, height = 600;
@@ -127,21 +114,14 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     shaderProgramID = make_shaderProgram();
     //--- 콜백 함수 등록
     menu();
-	CreateCube(box, 1.0f, 1.0f, 1.0f);
+	CreateCube(box, boxsize, boxsize, boxsize);
     for (int i = 0; i < 3; i++) {
         CreateCube(boxs[i], 0.1f * (i + 1), 0.1f * (i + 1), 0.1f * (i + 1));
         // 초기 위치 설정
-        cubePositions[i].x = 0.0f;
-        cubePositions[i].y = -1.0f + (0.1f * (i + 1));
-        cubePositions[i].z = -0.1f * ((i + 1) * (i + 1) - 1) + 0.3f;
-        cubePositions[i].size = 0.1f * (i + 1);
+        boxs_axis[i].x = 0.0f;
+        boxs_axis[i].y = -1.0f + (0.1f * (i + 1));
+        boxs_axis[i].z = -0.1f * ((i + 1) * (i + 1) - 1) + 0.3f;
 	}
-    
-    // 공 데이터 초기화
-    for (int i = 0; i < 5; i++) {
-        ballData[i].active = false;
-    }
-    
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
@@ -150,10 +130,12 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     glutMotionFunc(Motion); // 마우스 움직임
     glutMainLoop();
 }
+
 // 메뉴
 void menu() {
     std::cout << "z: 카메라 z축 이동" << std::endl;
     std::cout << "y: 카메라 y축 공전" << std::endl;
+    std::cout << "a: 바닥면 열림" << std::endl;
     std::cout << "b: 공추가 (최대 5개)" << std::endl;
     std::cout << "q: 종료" << std::endl;
     std::cout << "마우스 드래그: 큐브 회전 및 작은 큐브 이동" << std::endl;
@@ -252,103 +234,94 @@ void CreateCube(Shape& cube, float x, float height, float y) {
     InitBuffers(cube);
 }
 
-// 공 생성 함수
-void CreateBall() {
-    if (ballCount >= 5) {
-        std::cout << "최대 5개의 공까지만 생성 가능합니다!" << std::endl;
-        return;
-    }
-    
-    // 중앙에서 시작
-    ballData[ballCount].x = 0.0f;
-    ballData[ballCount].y = 0.0f;
-    ballData[ballCount].z = 0.0f;
-    
-    // 랜덤한 방향으로 속도 설정 (0이 아닌 값으로 보장)
-    do {
-        ballData[ballCount].vx = vel_dis(gen);
-        ballData[ballCount].vy = vel_dis(gen);
-        ballData[ballCount].vz = vel_dis(gen);
-    } while (abs(ballData[ballCount].vx) < 0.005f && 
-             abs(ballData[ballCount].vy) < 0.005f && 
-             abs(ballData[ballCount].vz) < 0.005f);
-    
-    ballData[ballCount].active = true;
-    ballCount++;
-    
-    std::cout << "공 생성됨! 현재 공 개수: " << ballCount << std::endl;
-}
-
 // 공 업데이트 함수
-void UpdateBalls() {
+void BallsMove() {
     for (int i = 0; i < ballCount; i++) {
-        if (!ballData[i].active) continue;
-        
         // 위치 업데이트
-        ballData[i].x += ballData[i].vx;
-        ballData[i].y += ballData[i].vy;
-        ballData[i].z += ballData[i].vz;
-        
+        spheres_axis[i] += spheres_vaxis[i];
+
         // X축 충돌 체크 및 튕김
-        if (ballData[i].x - BALL_RADIUS < WALL_MIN) {
-            ballData[i].x = WALL_MIN + BALL_RADIUS;
-            ballData[i].vx = -ballData[i].vx;
-        } else if (ballData[i].x + BALL_RADIUS > WALL_MAX) {
-            ballData[i].x = WALL_MAX - BALL_RADIUS;
-            ballData[i].vx = -ballData[i].vx;
+        if (spheres_axis[i].x - ballsize < -boxsize) {
+            spheres_axis[i].x = -boxsize + ballsize;
+            spheres_vaxis[i].x = -spheres_vaxis[i].x;
+        } else if (spheres_axis[i].x + ballsize > boxsize) {
+            spheres_axis[i].x = boxsize - ballsize;
+            spheres_vaxis[i].x = -spheres_vaxis[i].x;
         }
         
         // Y축 충돌 체크 및 튕김
-        if (ballData[i].y - BALL_RADIUS < WALL_MIN) {
-            ballData[i].y = WALL_MIN + BALL_RADIUS;
-            ballData[i].vy = -ballData[i].vy;
-        } else if (ballData[i].y + BALL_RADIUS > WALL_MAX) {
-            ballData[i].y = WALL_MAX - BALL_RADIUS;
-            ballData[i].vy = -ballData[i].vy;
+        if (spheres_axis[i].y - ballsize < -boxsize) {
+            spheres_axis[i].y = -boxsize + ballsize;
+            spheres_vaxis[i].y = -spheres_vaxis[i].y;
+        } else if (spheres_axis[i].y + ballsize > boxsize) {
+            spheres_axis[i].y = boxsize - ballsize;
+            spheres_vaxis[i].y = -spheres_vaxis[i].y;
         }
         
         // Z축 충돌 체크 및 튕김
-        if (ballData[i].z - BALL_RADIUS < WALL_MIN) {
-            ballData[i].z = WALL_MIN + BALL_RADIUS;
-            ballData[i].vz = -ballData[i].vz;
-        } else if (ballData[i].z + BALL_RADIUS > WALL_MAX) {
-            ballData[i].z = WALL_MAX - BALL_RADIUS;
-            ballData[i].vz = -ballData[i].vz;
+        if (spheres_axis[i].z - ballsize < -boxsize) {
+            spheres_axis[i].z = -boxsize + ballsize;
+            spheres_vaxis[i].z = -spheres_vaxis[i].z;
+        } else if (spheres_axis[i].z + ballsize > boxsize) {
+            spheres_axis[i].z = boxsize - ballsize;
+            spheres_vaxis[i].z = -spheres_vaxis[i].z;
         }
     }
 }
 
 // 큐브 위치 업데이트 함수
 void UpdateCubePositions() {
-    float radians = glm::radians(cube_rotate_angle);
-    float gravity_x = -sin(radians) * 0.02f;  // 중력 방향 벡터
-    float gravity_y = -cos(radians) * 0.02f;
-    
     for (int i = 0; i < 3; i++) {
-        float half_size = cubePositions[i].size;
+        float half_size = 0.1 * (i + 1);
         
         // 새로운 위치 계산
-        float new_x = cubePositions[i].x + gravity_x;
-        float new_y = cubePositions[i].y + gravity_y;
+        float new_x = boxs_axis[i].x - sin(glm::radians(cube_rotate_angle)) * 0.02f;
+        float new_y = boxs_axis[i].y - cos(glm::radians(cube_rotate_angle)) * 0.02f;
         
         // X축 충돌 체크
-        if (new_x - half_size < WALL_MIN) {
-            new_x = WALL_MIN + half_size;
-        } else if (new_x + half_size > WALL_MAX) {
-            new_x = WALL_MAX - half_size;
-        }
+        if (new_x - half_size < -boxsize - opensize) new_x = -boxsize - opensize + half_size;
+        else if (new_x + half_size > boxsize + opensize) new_x = boxsize + opensize - half_size;
         
         // Y축 충돌 체크
-        if (new_y - half_size < WALL_MIN) {
-            new_y = WALL_MIN + half_size;
-        } else if (new_y + half_size > WALL_MAX) {
-            new_y = WALL_MAX - half_size;
-        }
+        if (new_y - half_size < -boxsize - opensize) new_y = -boxsize - opensize + half_size;
+        else if (new_y + half_size > boxsize + opensize) new_y = boxsize + opensize - half_size;
         
         // 위치 업데이트
-        cubePositions[i].x = new_x;
-        cubePositions[i].y = new_y;
+        boxs_axis[i].x = new_x;
+        boxs_axis[i].y = new_y;
     }
+}
+
+// 바닥면을 계산하는 함수 추가
+int CalculateBottomFace() {
+    // 각 면의 법선 벡터 (로컬 좌표)
+    glm::vec3 face_normals[6] = {
+        glm::vec3(0.0f, 0.0f, -1.0f), // 앞면 (인덱스 0)
+        glm::vec3(0.0f, 0.0f, 1.0f),  // 뒷면 (인덱스 1)
+        glm::vec3(0.0f, -1.0f, 0.0f), // 아래면 (인덱스 2)
+        glm::vec3(0.0f, 1.0f, 0.0f),  // 위면 (인덱스 3)
+        glm::vec3(1.0f, 0.0f, 0.0f),  // 오른면 (인덱스 4)
+        glm::vec3(-1.0f, 0.0f, 0.0f)  // 왼면 (인덱스 5)
+    };
+
+    // 회전 변환 행렬
+    glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1.0f), glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    int bottom_index = 2; // 기본값
+    float min_y = 1.0f; // 가장 아래쪽을 찾기 위한 초기값
+
+    for (int i = 0; i < 6; i++) {
+        // 법선 벡터를 회전 변환
+        glm::vec4 rotated_normal = rotation_matrix * glm::vec4(face_normals[i], 0.0f);
+
+        // y 성분이 가장 작은(음수 방향으로 가장 큰) 면이 바닥면
+        if (rotated_normal.y < min_y) {
+            min_y = rotated_normal.y;
+            bottom_index = i;
+        }
+    }
+
+    return bottom_index;
 }
 
 // 버퍼 설정 함수
@@ -470,31 +443,39 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
 	model = glm::rotate(model, glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
     glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
     glBindVertexArray(box.VAO);
-    glDrawElements(GL_TRIANGLES, box.index.size(), GL_UNSIGNED_INT, 0);
+    if (open) {
+        for (int i = 0; i < 6; i++) {
+			if (i == bottom_face_index) continue;
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(i * 6 * sizeof(unsigned int)));
+        }
+    }
+	else glDrawElements(GL_TRIANGLES, box.index.size(), GL_UNSIGNED_INT, 0);
+    
     
     // 작은 상자들
     glDisable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
-    for (int i = 0; i < 3; i++) {
-        glm::mat4 model = glm::mat4(1.0f);
-		model = glm::rotate(model, glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::translate(model, glm::vec3(cubePositions[i].x, cubePositions[i].y, cubePositions[i].z));
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glBindVertexArray(boxs[i].VAO);
-        glDrawElements(GL_TRIANGLES, boxs[i].index.size(), GL_UNSIGNED_INT, 0);
-	}
+    if (show) {
+        for (int i = 0; i < 3; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::rotate(model, glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
+            model = glm::translate(model, boxs_axis[i]);
+            glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
+            glBindVertexArray(boxs[i].VAO);
+            glDrawElements(GL_TRIANGLES, boxs[i].index.size(), GL_UNSIGNED_INT, 0);
+        }
+    }
     
     // 공 - 활성화된 공만 렌더링
     for (int i = 0; i < ballCount; i++) {
-        if (!ballData[i].active) continue;
-        
         sphere[i] = gluNewQuadric();
         gluQuadricDrawStyle(sphere[i], GLU_FILL);
         
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(ballData[i].x, ballData[i].y, ballData[i].z));
+		model = glm::rotate(model, glm::radians(cube_rotate_angle), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::translate(model, spheres_axis[i]);
         glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
-        gluSphere(sphere[i], BALL_RADIUS, 20, 20);
+        gluSphere(sphere[i], ballsize, 20, 20);
         gluDeleteQuadric(sphere[i]);
     }
 
@@ -503,6 +484,8 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
 
 //--- 다시그리기 콜백 함수
 GLvoid Reshape(int w, int h) {
+    width = w;
+    height = h;
     glViewport(0, 0, w, h);
 }
 
@@ -516,7 +499,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 		camera.eye.z += 0.1f;
 		break;
     case 'y':
-        angle = glm::radians(4.0f);
+        angle = glm::radians(5.0f);
         cos_angle = cos(angle);
         sin_angle = sin(angle);
 
@@ -527,7 +510,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         camera.eye.z = new_eye_z;
         break;
     case 'Y':
-        angle = glm::radians(-4.0f);
+        angle = glm::radians(-5.0f);
         cos_angle = cos(angle);
         sin_angle = sin(angle);
 
@@ -538,7 +521,23 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         camera.eye.z = new_eye_z;
         break;
     case 'b': // 공 하나씩 생성
-        CreateBall();
+        if (ballCount >= 5) return;
+        spheres_axis[ballCount] = glm::vec3(0.0f);
+
+        do {
+            spheres_vaxis[ballCount].x = vel_dis(gen);
+            spheres_vaxis[ballCount].y = vel_dis(gen);
+            spheres_vaxis[ballCount].z = vel_dis(gen);
+        } while (abs(spheres_vaxis[ballCount].x) < 0.01f &&
+            abs(spheres_vaxis[ballCount].y) < 0.01f &&
+            abs(spheres_vaxis[ballCount].z) < 0.01f);
+
+        ballCount++;
+        break;
+    case 'a':
+		opensize = 10.0f;
+		open = true;
+        bottom_face_index = CalculateBottomFace();
         break;
     case 'q':
         exit(0);
@@ -547,6 +546,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
+// 마우스 콜백 함수
 void Mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		isclicked = true;
@@ -557,28 +557,23 @@ void Mouse(int button, int state, int x, int y) {
     glutPostRedisplay();
 }
 
+// 마우스 움직임 콜백 함수
 void Motion(int x, int y) {
-    float mx = MouseX(x);
     if (isclicked) {
-        if (mx < 0.0f) cube_rotate_angle += 0.1f;
-        else cube_rotate_angle -= 0.1f;
-        
-        // 큐브 위치 업데이트
-        UpdateCubePositions();
-    }
+        if (MouseX(x) < 0.0f) cube_rotate_angle += 0.2f;
+        else cube_rotate_angle -= 0.2f;
+    }    
     glutPostRedisplay();
 }
 
 // 타이머 콜백 함수
 void TimerFunction(int value) {
-    // 지속적으로 중력 적용
-    if (isclicked) {
-        UpdateCubePositions();
+    UpdateCubePositions();
+    BallsMove();
+    if (boxs_axis[0].y <= -2.0f || boxs_axis[0].x <= -2.0f || boxs_axis[0].x >= 2.0f || boxs_axis[0].y >= 2.0f) {
+        open = false;
+        show = false;
     }
-    
-    // 공 업데이트 (항상 실행)
-    UpdateBalls();
-    
     glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }

@@ -87,5 +87,8 @@
     <ClCompile Include="21.cpp">
       <Filter>소스 파일\좌표계 변환</Filter>
     </ClCompile>
+    <ClCompile Include="22.cpp">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

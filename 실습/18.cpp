@@ -423,10 +423,25 @@ void SwapPosition() {
 }
 
 // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션
+bool up = false; bool down = false; bool reverse = false;
 void UpDownSwap() {
-    glm::mat4 rotMat = glm::rotate(glm::mat4(1.0f), glm::radians(2.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    rMatrix = rotMat * rMatrix;
-    lMatrix = rotMat * lMatrix;
+    //glm::mat4 rotMat = glm::rotate(glm::mat4(1.0f), glm::radians(2.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 transMat1 = glm::translate(glm::mat4(1.0f), glm::vec3(-0.02f, 0.02f, 0.0f));
+    glm::mat4 transMat2 = glm::translate(glm::mat4(1.0f), glm::vec3(-0.02f, -0.02f, 0.0f));
+    glm::mat4 transMat3 = glm::translate(glm::mat4(1.0f), glm::vec3(0.02f, -0.02f, 0.0f));
+    glm::mat4 transMat4 = glm::translate(glm::mat4(1.0f), glm::vec3(0.02f, 0.02f, 0.0f));
+    if (reverse) {
+        if (up) lMatrix = transMat1 * lMatrix;
+        else lMatrix = transMat2 * lMatrix;
+        if (down) rMatrix = transMat3 * rMatrix;
+        else rMatrix = transMat4 * rMatrix;
+    }
+    else {
+        if (up) rMatrix = transMat1 * rMatrix;
+        else rMatrix = transMat2 * rMatrix;
+        if (down) lMatrix = transMat3 * lMatrix;
+        else lMatrix = transMat4 * lMatrix;
+    }
 }
 
 // 두 도형이 확대 축소하면서 공전/자전 애니메이션
@@ -593,7 +608,6 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         swap = true;
 		break;
     case 'u': // 두 도형이 위로 아래로 움직이면서 서로 위치 바꾸는 애니메이션 
-		Reset();
 		updown = true;
         break;
 	case 'v': // 두 도형이 확대 축소하면서 공전/자전 애니메이션
@@ -738,6 +752,7 @@ GLvoid Reshape(int w, int h) {
 }
 
 // 타이머 콜백 함수
+int cnt = 0;
 void TimerFunction(int value) {
     for (int i = 0; i < animationMatrix.size(); i++) {
         if (animationMatrix[i] == &rMatrix) {
@@ -766,11 +781,20 @@ void TimerFunction(int value) {
     }
     if (updown) {
         UpDownSwap();
-		a += 2;
-        if (a > 180) {
-            a = 0;
+        cnt++;
+        if (cnt <= 25) {
+            up = true;
+            down = true;
+        }
+        else if (cnt <= 50) {
+            up = false;
+            down = false;
+        }
+        else {
+            cnt = 0;
             updown = false;
-		}
+            reverse = !reverse;
+        }
 	}
 	glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
