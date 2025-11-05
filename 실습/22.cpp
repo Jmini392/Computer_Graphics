@@ -21,8 +21,16 @@ struct Shape {
     std::vector<float> vertices;
     std::vector<unsigned int> index;
     std::vector<float> colors;
+	glm::vec3 position;
     GLuint VAO, VBO[2], EBO;
 };
+Shape robot[7]; // 0 머리, 1 몸통, 2 왼팔, 3 오른팔, 4 왼다리, 5 오른다리, 6 코
+Shape box; Shape obstacles[3];
+glm::mat4 lanimation = glm::mat4(1.0f);
+glm::mat4 ranimation = glm::mat4(1.0f);
+glm::mat4 movement = glm::mat4(1.0f);
+float robot_speed = 0.05f;
+bool stop = false;
 
 // 카메라
 struct Camera {
@@ -33,9 +41,7 @@ struct Camera {
              glm::vec3(0.0f, 0.0f, 0.0f),
              glm::vec3(0.0f, 1.0f, 0.0f) };
 float angle; float cos_angle; float sin_angle;
-float new_eye_x; float new_eye_z; glm::vec3 direction;
-bool camera_rotate = false;
-
+float new_eye_x; float new_eye_z;
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -61,10 +67,12 @@ GLuint make_shaderProgram();
 GLvoid drawScene();
 GLvoid Reshape(int w, int h);
 GLvoid Keyboard(unsigned char key, int x, int y);
-GLvoid SpecailKeyboard(int key, int x, int y);
+GLvoid KeyboardUp(unsigned char key, int x, int y);
 void TimerFunction(int value);
 void InitBuffers(Shape& shape);
-void CreateCube(Shape& cube, float x, float height, float y);
+void CreateCube(Shape& cube, float x, float y, float height);
+void robotlocation();
+void robot_arm_movement();
 void menu();
 
 //--- 필요한 변수 선언
@@ -91,13 +99,29 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     shaderProgramID = make_shaderProgram();
     //--- 콜백 함수 등록
     menu();
+	// 상자 생성
+	CreateCube(box, 3.0f, 3.0f, 3.0f);
+	// 장애물 생성
+    for (int i = 0; i < 3; i++) {
+        CreateCube(obstacles[i], 0.5f, 0.5f, 0.5f);
+	}
+	// 로봇 생성
+	CreateCube(robot[0], 0.1f, 0.1f, 0.1f); // 머리
+	CreateCube(robot[1], 0.2f, 0.4f, 0.1f); // 몸통
+	CreateCube(robot[2], 0.05f, 0.3f, 0.05f); // 왼팔
+	CreateCube(robot[3], 0.05f, 0.3f, 0.05f); // 오른팔
+	CreateCube(robot[4], 0.05f, 0.3f, 0.05f); // 왼다리
+	CreateCube(robot[5], 0.05f, 0.3f, 0.05f); // 오른다리
+	CreateCube(robot[6], 0.02f, 0.05f, 0.02f); // 코
+	robotlocation(); // 로봇 초기 위치 설정 함수
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
     glutKeyboardFunc(Keyboard); // 키보드 입력
-    glutSpecialFunc(SpecailKeyboard); // 특수키 입력
+	glutKeyboardUpFunc(KeyboardUp); // 키보드 업 입력
     glutMainLoop();
 }
+
 // 메뉴
 void menu() {
     std::cout << "o: 앞면이 열렸다 닫혔다" << std::endl;
@@ -112,7 +136,7 @@ void menu() {
 }
 
 // 큐브 생성 함수
-void CreateCube(Shape& cube, float x, float height, float y) {
+void CreateCube(Shape& cube, float x, float y, float height) {
     cube.vertices = {
         // 앞면
         -x, y, -height,
@@ -164,20 +188,149 @@ void CreateCube(Shape& cube, float x, float height, float y) {
         // 왼면
         20, 21, 22, 20, 22, 23
     };
+
+    cube.colors = {
+        // 앞면 - 연한회색
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+
+        // 뒷면 - 연한 회색
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+        0.8f, 0.8f, 0.8f,
+
+        // 아랫면 - 진한 회색
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+
+        // 윗면 - 진한 회색
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+        0.3f, 0.3f, 0.3f,
+
+        // 오른면 - 회색
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+
+        // 왼면 - 파란색
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f
+    };
+
     InitBuffers(cube);
 }
 
-// 카메라 회전 애니메이션
-void camera_rotation_animation() {
-    angle = glm::radians(5.0f);
-    cos_angle = cos(angle);
-    sin_angle = sin(angle);
+// 로봇 초기 위치 설정 함수
+void robotlocation() {
+    robot[0].position = glm::vec3(0.0f, 0.7f, 0.0f);    // 머리
+    robot[1].position = glm::vec3(0.0f, 0.2f, 0.0f);    // 몸통
+    robot[2].position = glm::vec3(-0.25f, 0.3f, 0.0f);  // 왼팔
+    robot[3].position = glm::vec3(0.25f, 0.3f, 0.0f);   // 오른팔
+    robot[4].position = glm::vec3(-0.1f, -0.35f, 0.0f); // 왼다리
+    robot[5].position = glm::vec3(0.1f, -0.35f, 0.0f);  // 오른다리
+    robot[6].position = glm::vec3(0.0f, 0.65f, 0.1f);   // 코
 
-    new_eye_x = camera.eye.x * cos_angle - camera.eye.z * sin_angle;
-    new_eye_z = camera.eye.x * sin_angle + camera.eye.z * cos_angle;
+    for (int i = 0; i < 7; i++) {
+		robot[i].colors.clear();
+	}
+	// 머리 - 빨간색
+    for (size_t j = 0; j < robot[0].vertices.size() / 3; j++) {
+            robot[0].colors.push_back(1.0f);
+            robot[0].colors.push_back(0.0f);
+            robot[0].colors.push_back(0.0f);
+    }
+	// 몸통 - 초록색
+    for (size_t j = 0; j < robot[1].vertices.size() / 3; j++) {
+            robot[1].colors.push_back(0.0f);
+            robot[1].colors.push_back(1.0f);
+            robot[1].colors.push_back(0.0f);
+	}
+	// 팔 - 파란색
+    for (size_t j = 0; j < robot[2].vertices.size() / 3; j++) {
+            robot[2].colors.push_back(0.0f);
+            robot[2].colors.push_back(0.0f);
+            robot[2].colors.push_back(1.0f);
+    }
+    for (size_t j = 0; j < robot[3].vertices.size() / 3; j++) {
+            robot[3].colors.push_back(0.0f);
+            robot[3].colors.push_back(0.0f);
+            robot[3].colors.push_back(1.0f);
+	}
+    // 다리 - 노란색
+    for (size_t j = 0; j < robot[4].vertices.size() / 3; j++) {
+            robot[4].colors.push_back(1.0f);
+            robot[4].colors.push_back(1.0f);
+            robot[4].colors.push_back(0.0f);
+    }
+    for (size_t j = 0; j < robot[5].vertices.size() / 3; j++) {
+            robot[5].colors.push_back(1.0f);
+            robot[5].colors.push_back(1.0f);
+            robot[5].colors.push_back(0.0f);
+	}
+    // 코 - 검정색
+    for (size_t j = 0; j < robot[6].vertices.size() / 3; j++) {
+            robot[6].colors.push_back(0.0f);
+            robot[6].colors.push_back(0.0f);
+            robot[6].colors.push_back(0.0f);
+	}
+    for (int i = 0; i < 7; i++) {
+        InitBuffers(robot[i]);
+	}
+}
 
-    camera.eye.x = new_eye_x;
-    camera.eye.z = new_eye_z;
+// 로봇 팔 움직임 함수
+void robot_arm_movement() {
+    static float left_angle = 0.0f;
+    static float right_angle = 0.0f;
+	static bool left_increasing = true;
+	static bool right_increasing = false;
+    const float angle_step = 2.0f;
+    const float max_angle = 20.0f;
+    // 왼쪽 움직임
+    if (left_increasing) {
+        left_angle += angle_step;
+        if (left_angle >= max_angle) {
+            left_angle = max_angle;
+            left_increasing = false;
+        }
+    } else {
+        left_angle -= angle_step;
+        if (left_angle <= -max_angle) {
+            left_angle = -max_angle;
+            left_increasing = true;
+        }
+    }
+    // 오른쪽 움직임
+    if (right_increasing) {
+        right_angle += angle_step;
+        if (right_angle >= max_angle) {
+            right_angle = max_angle;
+            right_increasing = false;
+        }
+    } else {
+        right_angle -= angle_step;
+        if (right_angle <= -max_angle) {
+            right_angle = -max_angle;
+            right_increasing = true;
+        }
+    }
+    // Apply transformations to robot arms and legs here as needed
+    lanimation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.3f, 0.0f)) *
+                 glm::rotate(glm::mat4(1.0f), glm::radians(left_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                 glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.3f, 0.0f));
+	ranimation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.3f, 0.0f)) * 
+                 glm::rotate(glm::mat4(1.0f), glm::radians(right_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+		         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.3f, 0.0f));
 }
 
 // 버퍼 설정 함수
@@ -279,7 +432,6 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     unsigned int projectionLocation = glGetUniformLocation(shaderProgramID, "projection");
     unsigned int viewLocation = glGetUniformLocation(shaderProgramID, "view");
     unsigned int transformLocation = glGetUniformLocation(shaderProgramID, "model");
-    unsigned int colorLocation = glGetUniformLocation(shaderProgramID, "objectColor");
 
     // 투영 행렬 설정
     glm::mat4 projection = glm::mat4(1.0f);
@@ -291,7 +443,49 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     view = glm::lookAt(camera.eye, camera.at, camera.up);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-    // 그리기
+    
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CW);
+    glCullFace(GL_FRONT);
+
+    // 모델 행렬 설정
+    glm::mat4 model = glm::mat4(1.0f);
+    glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
+
+    // 메인 상자
+    glBindVertexArray(box.VAO);
+    /*if (open) {
+        for (int i = 0; i < 6; i++) {
+            if (i == bottom_face_index) continue;
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(i * 6 * sizeof(unsigned int)));
+        }
+    }
+    else*/ glDrawElements(GL_TRIANGLES, box.index.size(), GL_UNSIGNED_INT, 0);
+
+    
+    glDisable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
+	// 로봇 그리기
+    for (int i = 0; i < 7; i++) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = movement * model;
+		model = glm::translate(model, robot[i].position);
+        if (i == 2 || i == 5) model = model * lanimation;
+        else if (i == 3 || i == 4) model = model * ranimation;
+        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
+        glBindVertexArray(robot[i].VAO);
+        glDrawElements(GL_TRIANGLES, robot[i].index.size(), GL_UNSIGNED_INT, 0);
+    }
+
+	// 장애물 그리기
+    for (int i = 0; i < 3; i++) {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, obstacles[i].position);
+        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, glm::value_ptr(model));
+        glBindVertexArray(obstacles[i].VAO);
+        glDrawElements(GL_TRIANGLES, obstacles[i].index.size(), GL_UNSIGNED_INT, 0);
+	}
 
     glutSwapBuffers();
 }
@@ -304,6 +498,78 @@ GLvoid Reshape(int w, int h) {
 // 키보드 콜백 함수
 GLvoid Keyboard(unsigned char key, int x, int y) {
     switch (key) {
+	case 'o': // 앞면 열기
+		break;
+    case 'z': // 카메라 z축 이동
+        camera.eye.z -= 0.1f;
+		break;
+    case 'Z':
+        camera.eye.z += 0.1f;
+		break;
+    case 'x': // 카메라 x축 이동
+    	camera.eye.x += 0.1f;
+        break;
+	case 'X':
+		camera.eye.x -= 0.1f;
+		break;
+	case 'y': // 카메라 y축 공전
+        angle = glm::radians(5.0f);
+        cos_angle = cos(angle);
+        sin_angle = sin(angle);
+
+        new_eye_x = camera.eye.x * cos_angle - camera.eye.z * sin_angle;
+        new_eye_z = camera.eye.x * sin_angle + camera.eye.z * cos_angle;
+
+        camera.eye.x = new_eye_x;
+        camera.eye.z = new_eye_z;
+        break;
+    case 'Y':
+        angle = glm::radians(-5.0f);
+        cos_angle = cos(angle);
+        sin_angle = sin(angle);
+
+        new_eye_x = camera.eye.x * cos_angle - camera.eye.z * sin_angle;
+        new_eye_z = camera.eye.x * sin_angle + camera.eye.z * cos_angle;
+
+        camera.eye.x = new_eye_x;
+        camera.eye.z = new_eye_z;
+        break;
+	case 'w': // 로봇 이동
+		movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
+		stop = true;
+        break;
+	case 's':
+        movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, -robot_speed));
+		movement = glm::rotate(movement, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		stop = true;
+        break;
+	case 'a':
+        movement = glm::translate(movement, glm::vec3(-robot_speed, 0.0f, 0.0f));
+		movement = glm::rotate(movement, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		stop = true;
+        break;
+	case 'd':
+        movement = glm::translate(movement, glm::vec3(robot_speed, 0.0f, 0.0f));
+		movement = glm::rotate(movement, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		stop = true;
+        break;
+    case '=': // 로봇 속도 조절
+		robot_speed += 0.01f;
+		std::cout << "Robot speed: " << robot_speed << std::endl;
+        break;
+    case '-':
+		if (robot_speed > 0.01f) robot_speed -= 0.01f;
+		std::cout << "Robot speed: " << robot_speed << std::endl;
+        break;
+    case 'j': // 로봇 점프
+		break;
+	case 'i': // 초기화
+		movement = glm::mat4(1.0f);
+		robotlocation();
+		lanimation = glm::mat4(1.0f);
+        ranimation = glm::mat4(1.0f);
+		stop = false;
+		break;
     case 'q':
         exit(0);
         break;
@@ -311,8 +577,23 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
+// 키보드 업 콜백 함수
+GLvoid KeyboardUp(unsigned char key, int x, int y) {
+    switch (key) {
+    case 'w': // 로봇 이동
+    case 'a':
+    case 's':
+    case 'd':
+        stop = false;
+        break;
+    default:
+        break;
+    }
+}
+
 // 타이머 콜백 함수
 void TimerFunction(int value) {
+    if(stop) robot_arm_movement();
     glutPostRedisplay();
     glutTimerFunc(50, TimerFunction, 1);
 }
