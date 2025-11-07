@@ -72,9 +72,16 @@ GLvoid KeyboardUp(unsigned char key, int x, int y);
 void TimerFunction(int value);
 void InitBuffers(Shape& shape);
 void CreateCube(Shape& cube, float x, float y, float z);
-void robotlocation();
-void obstaclelocation();
-void robot_arm_movement();
+bool AABB(glm::vec3 pos1, float size1, glm::vec3 pos2, float size2) { // 충돌 검사 함수
+    return (pos1.x - size1 <= pos2.x + size2 && pos1.x + size1 >= pos2.x - size2 &&
+            pos1.z - size1 <= pos2.z + size2 && pos1.z + size1 >= pos2.z - size2);
+}
+bool wall_collision(glm::vec3 pos1, float size1, float size2) { // 벽 충돌 검사 함수
+    return (pos1.x - size1 <= -size2 || pos1.x + size1 >= size2 ||
+            pos1.z - size1 <= -size2 || pos1.z + size1 >= size2);
+}
+void location();
+void robot_movement();
 void robot_fall();
 void robot_jump();
 void menu();
@@ -109,7 +116,6 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     for (int i = 0; i < 3; i++) {
         CreateCube(obstacles[i], 0.5f, 0.5f, 0.5f);
 	}
-	obstaclelocation(); // 장애물 초기 위치 설정 함수
 	// 로봇 생성
 	CreateCube(robot[0], 0.1f, 0.1f, 0.1f); // 머리
 	CreateCube(robot[1], 0.2f, 0.4f, 0.1f); // 몸통
@@ -118,7 +124,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 	CreateCube(robot[4], 0.05f, 0.3f, 0.05f); // 왼다리
 	CreateCube(robot[5], 0.05f, 0.3f, 0.05f); // 오른다리
 	CreateCube(robot[6], 0.02f, 0.05f, 0.02f); // 코
-	robotlocation(); // 로봇 초기 위치 설정 함수
+	location(); // 초기 위치 설정 함수
     glutTimerFunc(50, TimerFunction, 1); // 타이머 함수 등록
     glutDisplayFunc(drawScene); // 출력 함수의 지정
     glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
@@ -246,120 +252,81 @@ void CubeFrontOpen() {
     open_angle += 2.0f;
 }
 
-// 로봇 초기 위치 설정 함수
-void robotlocation() {
-    //robot[0].position = glm::vec3(0.0f, 0.7f, 0.0f);    // 머리
+// 초기 위치 설정 함수
+void location() {
     robot[0].position = glm::vec3(0.0f, 1.35f, 0.0f);    // 머리
-    //robot[1].position = glm::vec3(0.0f, 0.2f, 0.0f);    // 몸통
     robot[1].position = glm::vec3(0.0f, 0.85f, 0.0f);    // 몸통
-    //robot[2].position = glm::vec3(-0.25f, 0.3f, 0.0f);  // 왼팔
     robot[2].position = glm::vec3(-0.25f, 0.95f, 0.0f);  // 왼팔
-    //robot[3].position = glm::vec3(0.25f, 0.3f, 0.0f);   // 오른팔
     robot[3].position = glm::vec3(0.25f, 0.95f, 0.0f);   // 오른팔
-    //robot[4].position = glm::vec3(-0.1f, -0.35f, 0.0f); // 왼다리
     robot[4].position = glm::vec3(-0.1f, 0.3f, 0.0f); // 왼다리
-    //robot[5].position = glm::vec3(0.1f, -0.35f, 0.0f);  // 오른다리
     robot[5].position = glm::vec3(0.1f, 0.3f, 0.0f);  // 오른다리
-    //robot[6].position = glm::vec3(0.0f, 0.65f, 0.1f);   // 코
     robot[6].position = glm::vec3(0.0f, 1.3f, 0.1f);   // 코
 
     for (int i = 0; i < 7; i++) {
 		robot[i].colors.clear();
 	}
-	// 머리 - 빨간색
     for (size_t j = 0; j < robot[0].vertices.size() / 3; j++) {
-            robot[0].colors.push_back(1.0f);
-            robot[0].colors.push_back(0.0f);
-            robot[0].colors.push_back(0.0f);
+        // 머리 - 빨간색
+        robot[0].colors.push_back(1.0f);
+        robot[0].colors.push_back(0.0f);
+        robot[0].colors.push_back(0.0f);
+        // 몸통 - 초록색
+        robot[1].colors.push_back(0.0f);
+        robot[1].colors.push_back(1.0f);
+        robot[1].colors.push_back(0.0f);
+        // 왼팔 - 파란색
+        robot[2].colors.push_back(0.0f);
+        robot[2].colors.push_back(0.0f);
+        robot[2].colors.push_back(1.0f);
+		// 오른팔 - 시안색
+        robot[3].colors.push_back(0.0f);
+        robot[3].colors.push_back(1.0f);
+		robot[3].colors.push_back(1.0f);
+		// 왼다리 - 노란색
+        robot[4].colors.push_back(1.0f);
+        robot[4].colors.push_back(1.0f);
+		robot[4].colors.push_back(0.0f);
+        // 오른다리 - 마젠타색
+        robot[5].colors.push_back(1.0f);
+		robot[5].colors.push_back(0.0f);
+		robot[5].colors.push_back(1.0f);
+		// 코 - 검정색
+		robot[6].colors.push_back(0.0f);
+        robot[6].colors.push_back(0.0f);
+		robot[6].colors.push_back(0.0f);
     }
-	// 몸통 - 초록색
-    for (size_t j = 0; j < robot[1].vertices.size() / 3; j++) {
-            robot[1].colors.push_back(0.0f);
-            robot[1].colors.push_back(1.0f);
-            robot[1].colors.push_back(0.0f);
-	}
-	// 팔 - 파란색
-    for (size_t j = 0; j < robot[2].vertices.size() / 3; j++) {
-            robot[2].colors.push_back(0.0f);
-            robot[2].colors.push_back(0.0f);
-            robot[2].colors.push_back(1.0f);
-    }
-    for (size_t j = 0; j < robot[3].vertices.size() / 3; j++) {
-            robot[3].colors.push_back(0.0f);
-            robot[3].colors.push_back(1.0f);
-            robot[3].colors.push_back(1.0f);
-	}
-    // 다리 - 노란색
-    for (size_t j = 0; j < robot[4].vertices.size() / 3; j++) {
-            robot[4].colors.push_back(1.0f);
-            robot[4].colors.push_back(1.0f);
-            robot[4].colors.push_back(0.0f);
-    }
-    for (size_t j = 0; j < robot[5].vertices.size() / 3; j++) {
-            robot[5].colors.push_back(1.0f);
-            robot[5].colors.push_back(0.0f);
-            robot[5].colors.push_back(1.0f);
-	}
-    // 코 - 검정색
-    for (size_t j = 0; j < robot[6].vertices.size() / 3; j++) {
-            robot[6].colors.push_back(0.0f);
-            robot[6].colors.push_back(0.0f);
-            robot[6].colors.push_back(0.0f);
-	}
     for (int i = 0; i < 7; i++) {
         InitBuffers(robot[i]);
 	}
-}
 
-// 장애물 초기 위치 설정 함수
-void obstaclelocation() {
     obstacles[0].position = glm::vec3(-2.0f, -2.5f, 1.0f);
     obstacles[1].position = glm::vec3(-1.0f, -2.5f, 2.0f);
     obstacles[2].position = glm::vec3(1.5f, -2.5f, -1.0f);
 }
 
-// 로봇 팔 움직임 함수
-void robot_arm_movement() {
-    static float left_angle = 0.0f;
-    static float right_angle = 0.0f;
-	static bool left_increasing = true;
-	static bool right_increasing = false;
-    const float angle_step = 2.0f;
-    const float max_angle = 20.0f;
-    // 왼쪽 움직임
-    if (left_increasing) {
-        left_angle += angle_step;
-        if (left_angle >= max_angle) {
-            left_angle = max_angle;
-            left_increasing = false;
+// 로봇 팔 다리 움직임 함수
+void robot_movement() {
+    static float robot_angle = 0.0f;
+    static bool increasing = true;
+    if (increasing) {
+        robot_angle += 2.0f;
+        if (robot_angle >= 20.f) {
+            robot_angle = 20.0f;
+            increasing = false;
         }
     } else {
-        left_angle -= angle_step;
-        if (left_angle <= -max_angle) {
-            left_angle = -max_angle;
-            left_increasing = true;
+        robot_angle -= 2.0f;
+        if (robot_angle <= -20.0f) {
+            robot_angle = -20.f;
+            increasing = true;
         }
     }
-    // 오른쪽 움직임
-    if (right_increasing) {
-        right_angle += angle_step;
-        if (right_angle >= max_angle) {
-            right_angle = max_angle;
-            right_increasing = false;
-        }
-    } else {
-        right_angle -= angle_step;
-        if (right_angle <= -max_angle) {
-            right_angle = -max_angle;
-            right_increasing = true;
-        }
-    }
-    // Apply transformations to robot arms and legs here as needed
+        
     lanimation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.3f, 0.0f)) *
-                 glm::rotate(glm::mat4(1.0f), glm::radians(left_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                 glm::rotate(glm::mat4(1.0f), glm::radians(robot_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
                  glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.3f, 0.0f));
 	ranimation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.3f, 0.0f)) * 
-                 glm::rotate(glm::mat4(1.0f), glm::radians(right_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                 glm::rotate(glm::mat4(1.0f), glm::radians(-robot_angle), glm::vec3(1.0f, 0.0f, 0.0f)) *
 		         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.3f, 0.0f));
 }
 
@@ -368,7 +335,7 @@ bool jumping = false;
 void robot_jump() {
     static float jump_height = 0.0f;
     const float jump_speed = 0.1f;
-    const float max_jump_height = 1.0f;
+    const float max_jump_height = 2.0f;
     jump_height += jump_speed;
     if (jump_height >= max_jump_height) {
         jump_height = 0.0f;
@@ -382,50 +349,30 @@ void robot_jump() {
 // 로봇 자유 낙하 함수
 void robot_fall() {
     // 로봇 다리 위치 계산
+    glm::vec3 robot_pos = glm::vec3(movement[3][0], movement[3][1], movement[3][2]);
     float y = robot[4].position.y;
     // 로봇 다리 크기
     float size = 0.3f; // 다리 높이의 절반
 
+	// 장애물과의 충돌 감지
+    for (int i = 0; i < 3; i++) {
+        if (AABB(robot_pos, 0.2f, obstacles[i].position, 0.5f)) {
+            if (y - size > obstacles[i].position.y + 0.6f) {
+                for (int j = 0; j < 7; j++) {
+                    robot[j].position.y += -0.1f; // 낙하 속도
+                }
+            }
+            else return; // 장애물에 닿았으면 낙하 멈춤
+		}
+	}
+
 	// 바닥과의 충돌 감지
-    if (y - size > -wall_size) {
+    if (y - size >= -wall_size) {
         for (int i = 0; i < 7; i++) {
 			robot[i].position.y += -0.1f; // 낙하 속도
         }
 	}
 	else return; // 바닥에 닿았으면 낙하 멈춤
-}
-
-// 로봇 충돌 감지 및 처리 함수
-void robot_collision() {
-	// 로봇 몸통 위치 계산
-    float robot_x = movement[3][0];
-    float robot_y = movement[3][1];
-    float robot_z = movement[3][2];
-    float robot_size = 0.2f;
-    
-    // 벽과의 충돌 감지
-    if (robot_z - robot_size < -wall_size) robot_z = -wall_size + robot_size;
-    if (robot_z + robot_size > wall_size) robot_z = wall_size - robot_size;
-    if (robot_x - robot_size < -wall_size) robot_x = -wall_size + robot_size;
-    if (robot_x + robot_size > wall_size) robot_x = wall_size - robot_size;
-
-	// 장애물과의 충돌 감지
-    for (int i = 0; i < 3; i++) {
-        float ox = obstacles[i].position.x;
-        float oy = obstacles[i].position.y;
-        float oz = obstacles[i].position.z;
-        float os = 0.5f;
-        
-        bool aabb_collision = (robot_x > ox - os) && (robot_x < ox + os) &&
-            (robot_y > oy - os) && (robot_y < oy + os) &&
-            (robot_z > oz - os) && (robot_z < oz + os);
-
-    }
-	
-    // 충돌 후 위치 반영
-    movement[3][0] = robot_x;
-    movement[3][1] = robot_y;
-	movement[3][2] = robot_z;
 }
 
 // 버퍼 설정 함수
@@ -596,22 +543,22 @@ GLvoid Reshape(int w, int h) {
 float new_x;
 GLvoid Keyboard(unsigned char key, int x, int y) {
     switch (key) {
-	case 'o': // 앞면 열기
+    case 'o': // 앞면 열기
         open = true;
-		break;
+        break;
     case 'z': // 카메라 z축 이동
         camera.eye.z -= 0.1f;
-		break;
+        break;
     case 'Z':
         camera.eye.z += 0.1f;
-		break;
-    case 'x': // 카메라 x축 이동
-    	camera.eye.x += 0.1f;
         break;
-	case 'X':
-		camera.eye.x -= 0.1f;
-		break;
-	case 'y': // 카메라 y축 공전
+    case 'x': // 카메라 x축 이동
+        camera.eye.x += 0.1f;
+        break;
+    case 'X':
+        camera.eye.x -= 0.1f;
+        break;
+    case 'y': // 카메라 y축 공전
         angle = glm::radians(5.0f);
         cos_angle = cos(angle);
         sin_angle = sin(angle);
@@ -633,9 +580,16 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         camera.eye.x = new_eye_x;
         camera.eye.z = new_eye_z;
         break;
-	case 'w': // 로봇 이동
-		movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
-		movemotion = true;
+    case 'w': // 로봇 이동
+        glm::vec3 robot_pos = glm::vec3(movement[3][0], movement[3][1], movement[3][2]);
+        glm::vec3 next_pos = robot_pos + glm::vec3(glm::mat3(movement) * glm::vec3(0.0f, 0.0f, robot_speed));
+        if (wall_collision(next_pos, 0.2f, wall_size)) return;
+        for (int i = 0; i < 3; i++) {
+            bool isAboveObstacle = (robot[4].position.y - 0.3f) >= (obstacles[i].position.y + 0.5f);
+            if (!isAboveObstacle && AABB(next_pos, 0.2f, obstacles[i].position, 0.5f)) return; 
+        }
+        movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
+        movemotion = true;
         break;
 	case 's':
         movement = glm::rotate(movement, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -647,6 +601,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         movement = glm::rotate(movement, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         break;
     case '=': // 로봇 속도 조절
+	case '+':
 		robot_speed += 0.01f;
 		std::cout << "Robot speed: " << robot_speed << std::endl;
         break;
@@ -658,8 +613,8 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         jumping = true;
 		break;
 	case 'i': // 초기화
-		movement = glm::mat4(1.0f);
-		robotlocation();
+        location();
+        movement = glm::mat4(1.0f);
 		lanimation = glm::mat4(1.0f);
         ranimation = glm::mat4(1.0f);
 		front = glm::mat4(1.0f);
@@ -689,9 +644,8 @@ GLvoid KeyboardUp(unsigned char key, int x, int y) {
 
 // 타이머 콜백 함수
 void TimerFunction(int value) {
-    if(movemotion) robot_arm_movement();
+    if(movemotion) robot_movement();
 	if (open) CubeFrontOpen();
-    robot_collision();
     if(!jumping) robot_fall();
 	else robot_jump();
     glutPostRedisplay();
