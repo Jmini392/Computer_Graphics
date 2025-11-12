@@ -22,6 +22,9 @@
     <Filter Include="소스 파일\좌표계 변환">
       <UniqueIdentifier>{7abb7c99-9a64-4232-a2e8-6d2a8feee61e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\조명">
+      <UniqueIdentifier>{0b743ec1-043f-472b-8322-563d44b4077b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="8.cpp">
@@ -90,5 +93,55 @@
     <ClCompile Include="22.cpp">
       <Filter>소스 파일\좌표계 변환</Filter>
     </ClCompile>
+    <ClCompile Include="23.cpp">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </ClCompile>
+    <ClCompile Include="25.cpp">
+      <Filter>소스 파일\조명</Filter>
+    </ClCompile>
+    <ClCompile Include="26.cpp">
+      <Filter>소스 파일\조명</Filter>
+    </ClCompile>
+    <ClCompile Include="27.cpp">
+      <Filter>소스 파일\조명</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="15_fragment.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="15_vertex.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="19_fragment.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="19_vertex.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="21_fragment.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="21_vertex.glsl">
+      <Filter>소스 파일\좌표계 변환</Filter>
+    </None>
+    <None Include="8_fragment.glsl">
+      <Filter>소스 파일\GLSL 기초</Filter>
+    </None>
+    <None Include="8_vertex.glsl">
+      <Filter>소스 파일\GLSL 기초</Filter>
+    </None>
+    <None Include="14_fragment.glsl">
+      <Filter>소스 파일\GLSL 기초</Filter>
+    </None>
+    <None Include="14_vertex.glsl">
+      <Filter>소스 파일\GLSL 기초</Filter>
+    </None>
+    <None Include="25_fragment.glsl">
+      <Filter>소스 파일\조명</Filter>
+    </None>
+    <None Include="25_vertex.glsl">
+      <Filter>소스 파일\조명</Filter>
+    </None>
   </ItemGroup>
 </Project>

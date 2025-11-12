@@ -100,7 +100,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowPosition(100, 100);
     glutInitWindowSize(width, height);
-    glutCreateWindow("Example20");
+    glutCreateWindow("Example22");
     //--- GLEW 초기화하기
     glewExperimental = GL_TRUE;
     glewInit();
@@ -375,6 +375,24 @@ void robot_fall() {
 	else return; // 바닥에 닿았으면 낙하 멈춤
 }
 
+// 로봇 충돌 체크 함수
+bool robot_collision() {
+    glm::vec3 robot_pos = glm::vec3(movement[3][0], movement[3][1], movement[3][2]);
+    glm::vec3 next_pos = robot_pos + glm::vec3(glm::mat3(movement) * glm::vec3(0.0f, 0.0f, robot_speed));
+    if (wall_collision(next_pos, 0.2f, wall_size)) return false;
+    for (int i = 0; i < 3; i++) {
+        bool isAboveObstacle = (robot[4].position.y - 0.3f) >= (obstacles[i].position.y + 0.5f);
+        if (!isAboveObstacle && AABB(next_pos, 0.2f, obstacles[i].position, 0.5f)) return false;
+    }
+	return true;
+}
+
+// 로봇 방향 전환 함수
+void robot_turn(float angle) {
+	glm::vec3 robot_pos = glm::vec3(movement[3][0], movement[3][1], movement[3][2]);
+    movement = glm::translate(glm::mat4(1.0f), robot_pos) * glm::rotate(glm::mat4(1.0f), glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
 // 버퍼 설정 함수
 GLvoid InitBuffers(Shape& shape) {
     glGenVertexArrays(1, &shape.VAO);           // 버텍스 배열 객체id 생성
@@ -540,7 +558,7 @@ GLvoid Reshape(int w, int h) {
 }
 
 // 키보드 콜백 함수
-float new_x;
+bool rotate = true;
 GLvoid Keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case 'o': // 앞면 열기
@@ -580,25 +598,45 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         camera.eye.x = new_eye_x;
         camera.eye.z = new_eye_z;
         break;
-    case 'w': // 로봇 이동
-        glm::vec3 robot_pos = glm::vec3(movement[3][0], movement[3][1], movement[3][2]);
-        glm::vec3 next_pos = robot_pos + glm::vec3(glm::mat3(movement) * glm::vec3(0.0f, 0.0f, robot_speed));
-        if (wall_collision(next_pos, 0.2f, wall_size)) return;
-        for (int i = 0; i < 3; i++) {
-            bool isAboveObstacle = (robot[4].position.y - 0.3f) >= (obstacles[i].position.y + 0.5f);
-            if (!isAboveObstacle && AABB(next_pos, 0.2f, obstacles[i].position, 0.5f)) return; 
+    case 'w':
+        if (rotate) {
+            robot_turn(180.0f);  // 뒤 방향
+            rotate = false;
         }
-        movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
-        movemotion = true;
+        if (robot_collision()) {
+            movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
+            movemotion = true;
+        }
         break;
 	case 's':
-        movement = glm::rotate(movement, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		break;
+        if (rotate) {
+            robot_turn(0.0f);    // 앞 방향 (기본 방향)
+            rotate = false;
+        }
+        if (robot_collision()) {
+            movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
+            movemotion = true;
+        }
+        break;
 	case 'a':
-        movement = glm::rotate(movement, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        if (rotate) {
+            robot_turn(-90.0f);  // 왼쪽 방향
+            rotate = false;
+        }
+        if (robot_collision()) {
+            movement = glm::translate(movement, glm::vec3(0.0f, 0.0f, robot_speed));
+            movemotion = true;
+        }
         break;
     case 'd':
-        movement = glm::rotate(movement, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        if (rotate) {
+            robot_turn(90.0f);   // 오른쪽 방향
+            rotate = false;
+        }
+        if (robot_collision()) {
+            movement = glm::translate(movement, glm::vec3(0.0f, 0.0, robot_speed));
+            movemotion = true;
+        }
         break;
     case '=': // 로봇 속도 조절
 	case '+':
@@ -633,6 +671,10 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 GLvoid KeyboardUp(unsigned char key, int x, int y) {
     switch (key) {
     case 'w': // 로봇 이동
+	case 'a':
+	case 's':
+	case 'd':
+        rotate = true;
     	lanimation = glm::mat4(1.0f);
         ranimation = glm::mat4(1.0f);
         movemotion = false;

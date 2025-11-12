@@ -93,7 +93,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowPosition(100, 100);
     glutInitWindowSize(width, height);
-    glutCreateWindow("Example20");
+    glutCreateWindow("Example23");
     //--- GLEW 초기화하기
     glewExperimental = GL_TRUE;
     glewInit();
@@ -308,7 +308,7 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
     glm::mat4 projection = glm::mat4(1.0f);
 
     // ========== 원근 투영 ==========
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, width / 2 , height /2);
     projection = glm::perspective(glm::radians(90.0f), (float)(width / 2) / (float)(height / 2), 0.1f, 100.0f);
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
     

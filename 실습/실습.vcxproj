@@ -64,7 +64,16 @@
     <ClCompile Include="22.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="23.cpp" />
+    <ClCompile Include="23.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="25.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="26.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="27.cpp" />
     <ClCompile Include="3.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -86,6 +95,20 @@
     <ClCompile Include="9.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="14_fragment.glsl" />
+    <None Include="14_vertex.glsl" />
+    <None Include="15_fragment.glsl" />
+    <None Include="15_vertex.glsl" />
+    <None Include="19_fragment.glsl" />
+    <None Include="19_vertex.glsl" />
+    <None Include="21_fragment.glsl" />
+    <None Include="21_vertex.glsl" />
+    <None Include="25_fragment.glsl" />
+    <None Include="25_vertex.glsl" />
+    <None Include="8_fragment.glsl" />
+    <None Include="8_vertex.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
