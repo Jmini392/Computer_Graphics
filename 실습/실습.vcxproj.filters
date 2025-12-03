@@ -25,6 +25,9 @@
     <Filter Include="소스 파일\조명">
       <UniqueIdentifier>{0b743ec1-043f-472b-8322-563d44b4077b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\텍스처 매핑">
+      <UniqueIdentifier>{ca3f4b38-0837-459c-845d-b27d24b213ea}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="8.cpp">
@@ -111,6 +114,12 @@
     <ClCompile Include="28.cpp">
       <Filter>소스 파일\조명</Filter>
     </ClCompile>
+    <ClCompile Include="29.cpp">
+      <Filter>소스 파일\텍스처 매핑</Filter>
+    </ClCompile>
+    <ClCompile Include="30.cpp">
+      <Filter>소스 파일\텍스처 매핑</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="15_fragment.glsl">
@@ -148,6 +157,12 @@
     </None>
     <None Include="25_vertex.glsl">
       <Filter>소스 파일\조명</Filter>
+    </None>
+    <None Include="29_fragment.glsl">
+      <Filter>소스 파일\텍스처 매핑</Filter>
+    </None>
+    <None Include="29_vertex.glsl">
+      <Filter>소스 파일\텍스처 매핑</Filter>
     </None>
   </ItemGroup>
 </Project>
